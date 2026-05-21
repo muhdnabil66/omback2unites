@@ -1,24 +1,31 @@
 "use client";
 
-import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export default function ThemeToggle() {
-  const [mounted, setMounted] = useState(false);
-  const { theme, setTheme } = useTheme();
-
-  useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
-
-  const isRetro = theme === "retro";
+  const [showInfo, setShowInfo] = useState(false);
 
   return (
-    <button
-      onClick={() => setTheme(isRetro ? "modern" : "retro")}
-      className="win-btn"
-      style={{ fontSize: "11px", padding: "2px 10px" }}
-    >
-      {isRetro ? "✨ Modern" : "🖥️ Retro"}
-    </button>
+    <div className="relative">
+      <button
+        onClick={() => setShowInfo(!showInfo)}
+        className="win-btn"
+        style={{ fontSize: "11px", padding: "2px 10px" }}
+      >
+        ℹ️ Info
+      </button>
+      {showInfo && (
+        <div
+          className="absolute right-0 mt-2 w-64 p-2 win-window"
+          style={{ backgroundColor: "var(--window-bg)", zIndex: 50 }}
+        >
+          <p className="text-xs">
+            Theme: Windows 2004 Retro
+            <br />
+            Colors: Dark Brown & Butter Yellow
+          </p>
+        </div>
+      )}
+    </div>
   );
 }

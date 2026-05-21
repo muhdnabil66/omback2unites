@@ -8,7 +8,7 @@ export function Providers({ children }) {
       attribute="class"
       defaultTheme="retro"
       enableSystem={false}
-      themes={["retro", "modern"]}
+      themes={["retro"]} // Hanya retro
     >
       {children}
     </ThemeProvider>

@@ -20,22 +20,6 @@
   --flipbook-bg: #fef3c7;
 }
 
-/* Modern theme */
-.modern {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f3f4f6;
-  --bg-card: #ffffff;
-  --text-primary: #111827;
-  --text-secondary: #4b5563;
-  --border-light: #e5e7eb;
-  --border-dark: #9ca3af;
-  --button-face: #e5e7eb;
-  --button-text: #1f2937;
-  --window-bg: #ffffff;
-  --taskbar-bg: #f3f4f6;
-  --flipbook-bg: #f9fafb;
-}
-
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
@@ -45,15 +29,15 @@ body {
     color 0.3s;
 }
 
-/* Navbar solid - tidak transparent */
+/* Navbar solid */
 .navbar-solid {
   background-color: var(--bg-secondary) !important;
   border-bottom: 2px solid var(--border-light) !important;
   backdrop-filter: none !important;
 }
 
-/* Windows 2004 styles (retro only) */
-.retro .win-window {
+/* Windows window frame */
+.win-window {
   background-color: var(--window-bg);
   border: 2px solid var(--border-light);
   border-top-color: var(--border-light);
@@ -63,7 +47,8 @@ body {
   box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-.retro .win-titlebar {
+/* Title bar */
+.win-titlebar {
   background: linear-gradient(90deg, #4a3627, #3b2a1f);
   padding: 6px 8px;
   color: var(--text-primary);
@@ -75,11 +60,11 @@ body {
   align-items: center;
 }
 
-.retro .win-titlebar-buttons {
+.win-titlebar-buttons {
   display: flex;
   gap: 4px;
 }
-.retro .win-titlebar-btn {
+.win-titlebar-btn {
   width: 22px;
   height: 22px;
   background-color: var(--button-face);
@@ -94,7 +79,8 @@ body {
   cursor: default;
 }
 
-.retro .win-btn {
+/* Windows 3D button */
+.win-btn {
   background-color: var(--button-face);
   border: 2px solid;
   border-top-color: var(--border-light);
@@ -110,18 +96,19 @@ body {
   align-items: center;
   gap: 6px;
 }
-.retro .win-btn:active {
+.win-btn:active {
   border-top-color: var(--border-dark);
   border-left-color: var(--border-dark);
   border-right-color: var(--border-light);
   border-bottom-color: var(--border-light);
   background-color: #4a3627;
 }
-.retro .win-btn:disabled {
+.win-btn:disabled {
   opacity: 0.6;
 }
 
-.retro .win-taskbar {
+/* Taskbar */
+.win-taskbar {
   background-color: var(--taskbar-bg);
   border-top: 1px solid var(--border-light);
   padding: 4px 12px;
@@ -131,8 +118,7 @@ body {
   font-size: 12px;
   color: var(--text-primary);
 }
-
-.retro .win-start-btn {
+.win-start-btn {
   background-color: var(--button-face);
   border: 2px solid;
   border-top-color: var(--border-light);
@@ -148,35 +134,12 @@ body {
   align-items: center;
   gap: 6px;
 }
-.retro .win-start-btn:active {
+.win-start-btn:active {
   border-top-color: var(--border-dark);
   border-left-color: var(--border-dark);
 }
 
-/* Modern theme overrides */
-.modern .win-window {
-  background-color: var(--window-bg);
-  border: 1px solid var(--border-light);
-  border-radius: 0.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-.modern .win-titlebar,
-.modern .win-taskbar {
-  display: none;
-}
-.modern .win-btn {
-  background-color: var(--button-face);
-  border: 1px solid var(--border-dark);
-  border-radius: 0.375rem;
-  padding: 4px 12px;
-  color: var(--button-text);
-  font-size: 12px;
-  cursor: pointer;
-}
-.modern .win-btn:active {
-  background-color: #d1d5db;
-}
-
+/* Flipbook */
 .flipbook-container .page {
   background: transparent !important;
   box-shadow: none;
@@ -187,7 +150,8 @@ body {
 .pdf-page {
   background-color: var(--flipbook-bg);
 }
-/* Fullscreen background mengikut tema */
+
+/* Fullscreen */
 :-webkit-full-screen {
   background-color: var(--bg-primary) !important;
 }
@@ -195,16 +159,10 @@ body {
   background-color: var(--bg-primary) !important;
 }
 
-/* Pastikan dalam fullscreen, elemen flipbook mengambil ruang penuh */
-:-webkit-full-screen .flex-1,
-:fullscreen .flex-1 {
-  height: 100vh !important;
-}
-/* Start Menu Windows style */
+/* Start Menu */
 .start-menu {
   font-family: var(--font-win);
 }
-
 .start-menu div {
   user-select: none;
 }
