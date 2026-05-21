@@ -16,20 +16,27 @@ export default function Home() {
       className="min-h-screen flex flex-col"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
-      {/* Navbar tanpa toggle */}
+      {/* Navbar dengan tiga logo - UiTM kecil, event1 & event2 sederhana, event2 ditarik ke kiri */}
       <div className="sticky top-0 z-10 navbar-solid">
         <div className="container mx-auto px-4 py-1 flex justify-center items-center">
           <div className="flex items-center justify-center gap-4 md:gap-6">
+            {/* Logo UiTM - kecil */}
             <img
               src="/uitm.png"
               alt="UiTM Logo"
-              className="h-10 md:h-12 w-auto object-contain"
-              style={{ maxHeight: "50px" }}
+              className="h-12 md:h-14 w-auto object-contain"
             />
+            {/* Event logo 1 - sederhana */}
             <img
-              src="/event.png"
-              alt="Event Logo"
-              className="h-20 md:h-26 w-auto object-contain"
+              src="/event1.png"
+              alt="Event Logo 1"
+              className="h-14 md:h-16 w-auto object-contain"
+            />
+            {/* Event logo 2 - sederhana dan ditarik ke kiri sedikit */}
+            <img
+              src="/event2.png"
+              alt="Event Logo 2"
+              className="h-14 md:h-16 w-auto object-contain -ml-2 md:-ml-3"
             />
           </div>
         </div>
