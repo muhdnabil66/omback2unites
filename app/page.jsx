@@ -44,7 +44,7 @@ const PdfFlipBook = dynamic(() => import("./components/PdfFlipBook"), {
 });
 
 export default function Home() {
-  const pdfUrl = "/obm247.pdf";
+  const pdfUrl = "/omb2ubook.pdf";
   const fileName = "OMback2unites Programme Book";
 
   return (
