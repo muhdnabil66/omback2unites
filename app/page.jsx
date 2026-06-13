@@ -45,7 +45,7 @@ const PdfFlipBook = dynamic(() => import("./components/PdfFlipBook"), {
 
 export default function Home() {
   const pdfUrl = "/programbook-compressed.pdf";
-  const fileName = "OMback2unites Program Book";
+  const fileName = "OMback2unite Program Book";
 
   return (
     <div
