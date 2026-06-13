@@ -4,7 +4,7 @@
   --font-win: "Tahoma", "Segoe UI", "Microsoft Sans Serif", sans-serif;
 }
 
-/* Retro theme (default) */
+/* Retro theme - DIKEKALKAN 100% WARNA ASAL */
 .retro {
   --bg-primary: #2b1a0e;
   --bg-secondary: #3b2a1f;
@@ -29,27 +29,38 @@ body {
     color 0.3s;
 }
 
-/* Navbar solid */
 .navbar-solid {
   background-color: var(--bg-secondary) !important;
   border-bottom: 2px solid var(--border-light) !important;
   backdrop-filter: none !important;
 }
 
-/* Windows window frame */
+/* Windows 2000 Window Frame (Raised / Timbul) */
 .win-window {
   background-color: var(--window-bg);
-  border: 2px solid var(--border-light);
+  border: 2px solid;
   border-top-color: var(--border-light);
   border-left-color: var(--border-light);
   border-right-color: var(--border-dark);
   border-bottom-color: var(--border-dark);
-  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    1px 1px 0px rgba(0, 0, 0, 0.2),
+    2px 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-/* Title bar */
+/* Windows 2000 Sunken Panel (Inset / Lekuk) - Untuk Flipbook & Input */
+.win-sunken {
+  border: 2px solid;
+  border-top-color: var(--border-dark);
+  border-left-color: var(--border-dark);
+  border-right-color: var(--border-light);
+  border-bottom-color: var(--border-light);
+  background-color: var(--bg-primary);
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
 .win-titlebar {
-  background: linear-gradient(90deg, #4a3627, #3b2a1f);
+  background: linear-gradient(90deg, var(--window-bg), var(--bg-secondary));
   padding: 6px 8px;
   color: var(--text-primary);
   font-weight: bold;
@@ -58,28 +69,40 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  letter-spacing: 0.5px;
 }
 
 .win-titlebar-buttons {
   display: flex;
   gap: 4px;
 }
+
 .win-titlebar-btn {
   width: 22px;
   height: 22px;
   background-color: var(--button-face);
-  border: 1px solid var(--border-light);
+  border: 2px solid;
+  border-top-color: var(--border-light);
+  border-left-color: var(--border-light);
   border-right-color: var(--border-dark);
   border-bottom-color: var(--border-dark);
   text-align: center;
-  line-height: 20px;
+  line-height: 18px;
   font-size: 12px;
   font-weight: bold;
   color: var(--button-text);
-  cursor: default;
+  cursor: pointer;
 }
 
-/* Windows 3D button */
+.win-titlebar-btn:active {
+  border-top-color: var(--border-dark);
+  border-left-color: var(--border-dark);
+  border-right-color: var(--border-light);
+  border-bottom-color: var(--border-light);
+  line-height: 19px; /* Simulate press */
+}
+
+/* Windows 2000 3D Button - Dipertingkatkan */
 .win-btn {
   background-color: var(--button-face);
   border: 2px solid;
@@ -94,30 +117,43 @@ body {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  transition: background-color 0.1s;
+  user-select: none;
 }
-.win-btn:active {
+
+.win-btn:hover:not(:disabled) {
+  background-color: #6b4528; /* Slightly lighter on hover */
+}
+
+.win-btn:active:not(:disabled) {
   border-top-color: var(--border-dark);
   border-left-color: var(--border-dark);
   border-right-color: var(--border-light);
   border-bottom-color: var(--border-light);
   background-color: #4a3627;
-}
-.win-btn:disabled {
-  opacity: 0.6;
+  transform: translateY(1px); /* Efek butang ditekan ke bawah */
 }
 
-/* Taskbar */
+.win-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: var(--text-secondary);
+}
+
 .win-taskbar {
   background-color: var(--taskbar-bg);
-  border-top: 1px solid var(--border-light);
+  border-top: 2px solid var(--border-light);
   padding: 4px 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 12px;
   color: var(--text-primary);
+  box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.2);
 }
+
 .win-start-btn {
   background-color: var(--button-face);
   border: 2px solid;
@@ -134,35 +170,38 @@ body {
   align-items: center;
   gap: 6px;
 }
+
 .win-start-btn:active {
   border-top-color: var(--border-dark);
   border-left-color: var(--border-dark);
+  border-right-color: var(--border-light);
+  border-bottom-color: var(--border-light);
 }
 
-/* Flipbook */
 .flipbook-container .page {
   background: transparent !important;
   box-shadow: none;
 }
+
 .flipbook-container .page img {
   pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
+
 .pdf-page {
   background-color: var(--flipbook-bg);
 }
 
-/* Fullscreen */
-:-webkit-full-screen {
-  background-color: var(--bg-primary) !important;
-}
+:-webkit-full-screen,
 :fullscreen {
   background-color: var(--bg-primary) !important;
 }
 
-/* Start Menu */
 .start-menu {
   font-family: var(--font-win);
 }
+
 .start-menu div {
   user-select: none;
 }

@@ -44,8 +44,8 @@ const PdfFlipBook = dynamic(() => import("./components/PdfFlipBook"), {
 });
 
 export default function Home() {
-  const pdfUrl = "/omb2ubook.pdf";
-  const fileName = "OMback2unites Programme Book";
+  const pdfUrl = "/programbook-compressed.pdf";
+  const fileName = "OMback2unites Program Book";
 
   return (
     <div
@@ -143,7 +143,7 @@ export default function Home() {
           className="text-xs mt-2"
           style={{ color: "var(--text-secondary)" }}
         >
-          © 2026 AtlasFlux — OMback2unites.
+          © 2026 DeCDcrew — OMback2unites.
         </div>
       </footer>
     </div>
