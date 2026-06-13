@@ -62,7 +62,7 @@ export default function WindowsTaskbar() {
       tentatives: "Program schedule — coming soon.",
       layout: "Layout view — coming soon.",
       about: "De'CDcrew | OMback2unite 2026\nPowered by AtlasFlux.",
-      shutdown: "Terima kasih kerana hadir! 🎉",
+      shutdown: "Thank you for attending! 🎉",
     };
     alert(msgs[id] ?? `${id} — coming soon.`);
   }, []);
