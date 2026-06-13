@@ -146,15 +146,29 @@ export default function Home() {
 
           {/* Status bar */}
           <div className="win-statusbar">
-            <div className="win-statusbar-panel">
-              <span style={{ marginRight: "3px" }}>📖</span>
-              Ready
-            </div>
-            <div className="win-statusbar-panel" style={{ flex: 1 }}>
-              {fileName}
+            {/* Always visible: ready indicator */}
+            <div className="win-statusbar-panel" style={{ flexShrink: 0 }}>
+              <span>📖</span>
+              <span>Ready</span>
             </div>
 
-            {/* Social links in status bar */}
+            {/* Hide filename on mobile — too wide */}
+            <div
+              className="win-statusbar-panel hidden md:flex"
+              style={{ flex: 1, overflow: "hidden" }}
+            >
+              <span
+                style={{
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {fileName}
+              </span>
+            </div>
+
+            {/* Social links — icon only on mobile, icon+text on desktop */}
             <a
               href="https://www.instagram.com/de.cdcrew?igsh=MTkyZmR3Y3BqenFwcg=="
               target="_blank"
@@ -164,11 +178,12 @@ export default function Home() {
                 color: "var(--text-secondary)",
                 textDecoration: "none",
                 cursor: "pointer",
-                gap: "4px",
+                flexShrink: 0,
               }}
               title="Follow on Instagram"
             >
-              <InstagramIcon /> Instagram
+              <InstagramIcon />
+              <span className="hidden md:inline">Instagram</span>
             </a>
 
             <a
@@ -180,15 +195,16 @@ export default function Home() {
                 color: "var(--text-secondary)",
                 textDecoration: "none",
                 cursor: "pointer",
-                gap: "4px",
+                flexShrink: 0,
               }}
               title="Follow on TikTok"
             >
-              <TikTokIcon /> TikTok
+              <TikTokIcon />
+              <span className="hidden md:inline">TikTok</span>
             </a>
 
-            {/* Resize grip dots */}
-            <div className="win-statusbar-grip">
+            {/* Resize grip — desktop only */}
+            <div className="win-statusbar-grip hidden md:grid">
               {[...Array(9)].map((_, i) => (
                 <span
                   key={i}
