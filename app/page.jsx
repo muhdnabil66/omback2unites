@@ -3,12 +3,11 @@
 import dynamic from "next/dynamic";
 import WindowsTaskbar from "./components/WindowsTaskbar";
 
-// Ikon Instagram SVG
 const InstagramIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
+    width="13"
+    height="13"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -22,12 +21,11 @@ const InstagramIcon = () => (
   </svg>
 );
 
-// Ikon TikTok SVG
 const TikTokIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
+    width="13"
+    height="13"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -41,6 +39,14 @@ const TikTokIcon = () => (
 
 const PdfFlipBook = dynamic(() => import("./components/PdfFlipBook"), {
   ssr: false,
+  loading: () => (
+    <div
+      className="flex items-center justify-center h-full"
+      style={{ color: "var(--text-secondary)", fontSize: "11px" }}
+    >
+      Loading viewer...
+    </div>
+  ),
 });
 
 export default function Home() {
@@ -50,9 +56,9 @@ export default function Home() {
   return (
     <div
       className="min-h-screen flex flex-col"
-      style={{ backgroundColor: "var(--bg-primary)" }}
+      style={{ backgroundColor: "var(--desktop-bg)" }}
     >
-      {/* Navbar dengan tiga logo */}
+      {/* ── Logo navbar (event branding strip) ── */}
       <div className="sticky top-0 z-10 navbar-solid">
         <div className="container mx-auto px-4 py-1 flex justify-center items-center">
           <div className="flex items-center justify-center gap-4 md:gap-6">
@@ -75,77 +81,135 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="flex-1 p-4">
-        <div className="win-window flex flex-col h-full">
+      {/* ── Desktop area ── */}
+      <div className="flex-1 p-2 md:p-3" style={{ minHeight: 0 }}>
+        {/* Window frame */}
+        <div className="win-window flex flex-col" style={{ height: "100%" }}>
+          {/* Title bar */}
           <div className="win-titlebar">
-            <span>📄 Programme Book Viewer</span>
+            <div className="win-titlebar-label">
+              <span style={{ fontSize: "13px", lineHeight: 1 }}>📄</span>
+              <span>{fileName} — De'CDcrew</span>
+            </div>
             <div className="win-titlebar-buttons">
-              <div className="win-titlebar-btn">—</div>
-              <div className="win-titlebar-btn">□</div>
-              <div className="win-titlebar-btn">✕</div>
+              <div className="win-titlebar-btn" title="Minimize">
+                <span
+                  style={{
+                    display: "block",
+                    width: "8px",
+                    height: "2px",
+                    backgroundColor: "var(--button-text)",
+                    marginTop: "6px",
+                  }}
+                />
+              </div>
+              <div className="win-titlebar-btn" title="Maximize">
+                <span
+                  style={{
+                    display: "block",
+                    width: "8px",
+                    height: "7px",
+                    border: "1.5px solid var(--button-text)",
+                    borderTop: "3px solid var(--button-text)",
+                  }}
+                />
+              </div>
+              <div
+                className="win-titlebar-btn close"
+                title="Close"
+                style={{
+                  fontFamily: "Arial, sans-serif",
+                  fontSize: "12px",
+                  fontWeight: "bold",
+                }}
+              >
+                ✕
+              </div>
             </div>
           </div>
+
+          {/* Menu bar */}
+          <div className="win-menubar">
+            <span className="win-menuitem">File</span>
+            <span className="win-menuitem">View</span>
+            <span className="win-menuitem">Navigate</span>
+            <span className="win-menuitem">Help</span>
+          </div>
+
+          {/* Inset content area */}
           <div
-            className="flex-1 p-4"
-            style={{ backgroundColor: "var(--window-bg)" }}
+            className="win-inset flex-1 m-1"
+            style={{ overflow: "hidden", minHeight: 0 }}
           >
             <PdfFlipBook pdfUrl={pdfUrl} fileName={fileName} />
           </div>
+
+          {/* Status bar */}
+          <div className="win-statusbar">
+            <div className="win-statusbar-panel">
+              <span style={{ marginRight: "3px" }}>📖</span>
+              Ready
+            </div>
+            <div className="win-statusbar-panel" style={{ flex: 1 }}>
+              {fileName}
+            </div>
+
+            {/* Social links in status bar */}
+            <a
+              href="https://www.instagram.com/de.cdcrew?igsh=MTkyZmR3Y3BqenFwcg=="
+              target="_blank"
+              rel="noopener noreferrer"
+              className="win-statusbar-panel"
+              style={{
+                color: "var(--text-secondary)",
+                textDecoration: "none",
+                cursor: "pointer",
+                gap: "4px",
+              }}
+              title="Follow on Instagram"
+            >
+              <InstagramIcon /> Instagram
+            </a>
+
+            <a
+              href="https://www.tiktok.com/@de.cdcrew?_r=1&_t=ZS-96ZhXk3VXoz"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="win-statusbar-panel"
+              style={{
+                color: "var(--text-secondary)",
+                textDecoration: "none",
+                cursor: "pointer",
+                gap: "4px",
+              }}
+              title="Follow on TikTok"
+            >
+              <TikTokIcon /> TikTok
+            </a>
+
+            {/* Resize grip dots */}
+            <div className="win-statusbar-grip">
+              {[...Array(9)].map((_, i) => (
+                <span
+                  key={i}
+                  style={{
+                    background:
+                      i >= 3
+                        ? i >= 6
+                          ? "var(--border-hi)"
+                          : "var(--border-light)"
+                        : "transparent",
+                  }}
+                />
+              ))}
+            </div>
+          </div>
         </div>
+        {/* /win-window */}
       </div>
 
-      {/* Windows Taskbar - diletakkan sebelum footer */}
+      {/* ── Windows 2000 Taskbar ── */}
       <WindowsTaskbar />
-
-      {/* Footer dengan pautan sosial media - gaya Windows retro */}
-      <footer
-        className="py-3 text-center"
-        style={{
-          backgroundColor: "var(--taskbar-bg)",
-          borderTop: "1px solid var(--border-light)",
-        }}
-      >
-        <div className="flex justify-center items-center gap-6">
-          <a
-            href="https://www.instagram.com/de.cdcrew?igsh=MTkyZmR3Y3BqenFwcg=="
-            target="_blank"
-            rel="noopener noreferrer"
-            className="win-btn"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "4px 12px",
-              fontSize: "12px",
-            }}
-            title="Follow on Instagram"
-          >
-            <InstagramIcon /> Instagram
-          </a>
-          <a
-            href="https://www.tiktok.com/@de.cdcrew?_r=1&_t=ZS-96ZhXk3VXoz"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="win-btn"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "4px 12px",
-              fontSize: "12px",
-            }}
-            title="Follow on TikTok"
-          >
-            <TikTokIcon /> TikTok
-          </a>
-        </div>
-        <div
-          className="text-xs mt-2"
-          style={{ color: "var(--text-secondary)" }}
-        >
-          © 2026 DeCDcrew — OMback2unites.
-        </div>
-      </footer>
     </div>
   );
 }

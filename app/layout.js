@@ -5,8 +5,8 @@ import { Providers } from "./providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "De'CDcrew | OMback2unites",
-  description: "Programme Book for OMback2unites event",
+  title: "De'CDcrew | OMback2unite",
+  description: "Program Book for OMback2unite event",
 };
 
 export default function RootLayout({ children }) {

@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect, useRef, useCallback } from "react";
+
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import HTMLFlipBook from "@marvellousptc/react-pageflip";
 import * as pdfjsLib from "pdfjs-dist";
 import {
@@ -9,6 +10,7 @@ import {
   ChevronRight,
   Maximize2,
   Minimize2,
+  Download,
 } from "lucide-react";
 
 if (typeof window !== "undefined") {
@@ -16,345 +18,537 @@ if (typeof window !== "undefined") {
     "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 }
 
+/* ── Win2000 Loading Dialog ── */
+function LoadingDialog({ progress, total }) {
+  const pct = total > 0 ? Math.round((progress / total) * 100) : 0;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "var(--inset-bg)",
+        zIndex: 20,
+      }}
+    >
+      <div className="win-window" style={{ width: 280, padding: 0 }}>
+        <div className="win-titlebar">
+          <div className="win-titlebar-label">
+            <span>⏳</span>
+            <span>Opening Document</span>
+          </div>
+        </div>
+        <div
+          style={{
+            padding: "16px 16px 12px",
+            backgroundColor: "var(--window-bg)",
+          }}
+        >
+          <p
+            style={{
+              fontSize: "11px",
+              color: "var(--text-primary)",
+              marginBottom: "10px",
+            }}
+          >
+            Rendering pages, please wait...
+          </p>
+          <div className="win-progress-track" style={{ marginBottom: "6px" }}>
+            <div
+              className="win-progress-fill"
+              style={{
+                width: `${pct}%`,
+                transition: "width 0.2s ease",
+              }}
+            />
+          </div>
+          <p
+            style={{
+              fontSize: "10px",
+              color: "var(--text-secondary)",
+              textAlign: "right",
+            }}
+          >
+            {progress} / {total > 0 ? total : "…"} pages
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Toolbar Button (compact Win2000) ── */
+function TBtn({ onClick, disabled, title, children }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className="win-btn"
+      style={{ padding: "3px 8px", fontSize: "11px" }}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function PdfFlipBook({ pdfUrl, fileName }) {
   const [pagesData, setPagesData] = useState([]);
+  const [loadedCount, setLoadedCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [loadProgress, setLoadProgress] = useState(0);
   const [error, setError] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [showLastPageMsg, setShowLastPageMsg] = useState(false);
+  const [dims, setDims] = useState({ w: 480, h: 640 });
+  const [showEndMsg, setShowEndMsg] = useState(false);
 
   const flipBookRef = useRef(null);
   const containerRef = useRef(null);
-  const isFlippingRef = useRef(false);
-  const totalPages = pagesData.length;
+  const isFlipping = useRef(false);
+  const resizeTimer = useRef(null);
+
+  /* ── Responsive dimensions ── */
+  const recalcDims = useCallback(() => {
+    if (!pagesData.length) return;
+    const base = pagesData[0];
+    const ratio = base.width / base.height;
+    const mobile = window.innerWidth < 768;
+    const fs = !!document.fullscreenElement;
+
+    let h;
+    if (fs) {
+      h = mobile ? window.innerHeight * 0.72 : window.innerHeight * 0.82;
+    } else {
+      const avail = Math.min(window.innerHeight * 0.7, 620);
+      h = mobile ? Math.min(avail, 460) : avail;
+    }
+    setDims({ w: Math.round(h * ratio), h: Math.round(h) });
+    setIsMobile(mobile);
+  }, [pagesData]);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+    const onResize = () => {
+      clearTimeout(resizeTimer.current);
+      resizeTimer.current = setTimeout(recalcDims, 120);
+    };
+    recalcDims();
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      clearTimeout(resizeTimer.current);
+    };
+  }, [recalcDims]);
 
+  /* ── PDF rendering ── */
   useEffect(() => {
     if (!pdfUrl) return;
+    let cancelled = false;
 
     const loadPdf = async () => {
       setIsLoading(true);
       setError(null);
-      setLoadProgress(0);
-
+      setLoadedCount(0);
+      setPagesData([]);
       try {
-        const loadingTask = pdfjsLib.getDocument(pdfUrl);
-        const pdf = await loadingTask.promise;
-        const total = pdf.numPages;
+        const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+        setTotalPages(pdf.numPages);
         const items = [];
 
-        // 1. RENDER HALAMAN PERTAMA DULU (Instant Feedback)
-        const firstPage = await pdf.getPage(1);
-        const vp1 = firstPage.getViewport({ scale: 1.5 }); // Scale 1.5 cukup HD & 2x lebih laju dari 2.0
-        const canvas1 = document.createElement("canvas");
-        canvas1.width = vp1.width;
-        canvas1.height = vp1.height;
-        await firstPage.render({
-          canvasContext: canvas1.getContext("2d"),
-          viewport: vp1,
-        }).promise;
-
-        items.push({
-          img: canvas1.toDataURL("image/jpeg", 0.85), // JPEG 85% jauh lebih ringan dari PNG default
-          width: vp1.width,
-          height: vp1.height,
-          pageNumber: 1,
-        });
-
-        setPagesData([...items]); // Tunjuk halaman 1 serta-merta
-        setLoadProgress(Math.round((1 / total) * 100));
-
-        // 2. RENDER BAKI HALAMAN DI BACKGROUND (Non-blocking loop)
-        for (let i = 2; i <= total; i++) {
+        for (let i = 1; i <= pdf.numPages; i++) {
+          if (cancelled) return;
           const page = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale: 1.5 });
+          const viewport = page.getViewport({ scale: 2.0 }); // HD render
           const canvas = document.createElement("canvas");
           canvas.width = viewport.width;
           canvas.height = viewport.height;
-
-          await page.render({
-            canvasContext: canvas.getContext("2d"),
-            viewport,
-          }).promise;
+          const ctx = canvas.getContext("2d");
+          await page.render({ canvasContext: ctx, viewport }).promise;
 
           items.push({
-            img: canvas.toDataURL("image/jpeg", 0.85),
+            img: canvas.toDataURL("image/png"),
             width: viewport.width,
             height: viewport.height,
             pageNumber: i,
           });
-
-          // Update progress setiap 2 halaman supaya UI tak freeze & user nampak progress
-          if (i % 2 === 0 || i === total) {
-            setPagesData([...items]);
-            setLoadProgress(Math.round((i / total) * 100));
-
-            // Beri "nafas" pada browser main thread supaya UI boleh respond
-            await new Promise((resolve) => setTimeout(resolve, 10));
-          }
+          if (!cancelled) setLoadedCount(i);
         }
 
-        setPagesData(items);
+        if (!cancelled) setPagesData(items);
       } catch (err) {
-        console.error("PDF Load Error:", err);
-        setError("Gagal memuatkan fail PDF. Sila semak sambungan atau fail.");
+        if (!cancelled) setError("Gagal memuatkan dokumen. Sila muat semula.");
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     loadPdf();
+    return () => {
+      cancelled = true;
+    };
   }, [pdfUrl]);
 
+  /* ── Fullscreen listener ── */
+  useEffect(() => {
+    const onChange = () => {
+      const fs = !!document.fullscreenElement;
+      setIsFullscreen(fs);
+      setTimeout(recalcDims, 120);
+    };
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, [recalcDims]);
+
+  /* ── Navigation ── */
+  // flipPrev on mobile needs rAF so the browser commits the current
+  // composited frame before the reverse-direction animation begins.
+  // Without it, the JS thread kicks off the left-corner flip mid-paint → jank.
+  const FLIP_MS = isMobile ? 580 : 750;
+
   const goPrev = useCallback(() => {
-    if (isFlippingRef.current || !flipBookRef.current) return;
+    if (isFlipping.current || !flipBookRef.current) return;
     if (currentPage === 0) return;
-    isFlippingRef.current = true;
-    flipBookRef.current.pageFlip().flipPrev();
+    isFlipping.current = true;
+    requestAnimationFrame(() => {
+      flipBookRef.current?.pageFlip().flipPrev();
+    });
     setTimeout(() => {
-      isFlippingRef.current = false;
-    }, 850);
-  }, [currentPage]);
+      isFlipping.current = false;
+    }, FLIP_MS + 80);
+  }, [currentPage, FLIP_MS]);
 
   const goNext = useCallback(() => {
-    if (isFlippingRef.current || !flipBookRef.current) return;
-    if (currentPage >= totalPages - 1) {
-      setShowLastPageMsg(true);
-      setTimeout(() => setShowLastPageMsg(false), 2000);
+    if (isFlipping.current || !flipBookRef.current) return;
+    const lastIdx = isMobile ? pagesData.length - 1 : pagesData.length - 2;
+    if (currentPage >= lastIdx) {
+      setShowEndMsg(true);
+      setTimeout(() => setShowEndMsg(false), 2000);
       return;
     }
-    isFlippingRef.current = true;
-    flipBookRef.current.pageFlip().flipNext();
+    isFlipping.current = true;
+    requestAnimationFrame(() => {
+      flipBookRef.current?.pageFlip().flipNext();
+    });
     setTimeout(() => {
-      isFlippingRef.current = false;
-    }, 850);
-  }, [currentPage, totalPages]);
+      isFlipping.current = false;
+    }, FLIP_MS + 80);
+  }, [currentPage, pagesData.length, isMobile, FLIP_MS]);
 
-  const onPageChange = (e) => {
-    setCurrentPage(e.data);
-    if (!isMuted) {
-      const audio = new Audio("/page-flip.mp3");
-      audio.volume = 0.5;
-      audio.play().catch(() => {});
-    }
-    setTimeout(() => {
-      isFlippingRef.current = false;
-    }, 850);
-  };
+  const onFlip = useCallback(
+    (e) => {
+      setCurrentPage(e.data);
+      if (!isMuted) {
+        const audio = new Audio("/page-flip.mp3");
+        audio.play().catch(() => {});
+      }
+      isFlipping.current = false;
+    },
+    [isMuted],
+  );
 
   const toggleFullscreen = async () => {
     if (!containerRef.current) return;
     try {
       if (!document.fullscreenElement) {
         await containerRef.current.requestFullscreen();
-        setIsFullscreen(true);
       } else {
         await document.exitFullscreen();
-        setIsFullscreen(false);
       }
-    } catch (err) {
-      console.error("Fullscreen error:", err);
-    }
+    } catch {}
   };
 
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-      setTimeout(() => {
-        if (flipBookRef.current && flipBookRef.current.pageFlip) {
-          flipBookRef.current.pageFlip().update();
-        }
-      }, 200);
-    };
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () =>
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-  }, []);
+  const downloadPdf = () => {
+    const a = document.createElement("a");
+    a.href = pdfUrl;
+    a.download = `${fileName}.pdf`;
+    a.click();
+  };
 
-  // --- LOADING SCREEN DENGAN PROGRESS BAR (Gaya Windows 2000) ---
-  if (isLoading) {
+  /* Stable key — only remount on layout/mode switch */
+  const stableKey = useMemo(
+    () => `flip-${isMobile}-${isFullscreen}`,
+    [isMobile, isFullscreen],
+  );
+
+  /* ── Error state ── */
+  if (error)
     return (
       <div
-        className="flex flex-col items-center justify-center p-12 space-y-4 win-window"
-        style={{ minWidth: "300px", margin: "auto" }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100%",
+          backgroundColor: "var(--inset-bg)",
+        }}
       >
-        <div className="w-full bg-[var(--bg-primary)] win-sunken p-1">
+        <div className="win-window" style={{ width: 280 }}>
+          <div className="win-titlebar">
+            <div className="win-titlebar-label">
+              <span>⚠️</span>
+              <span>Error</span>
+            </div>
+          </div>
           <div
-            className="h-4 transition-all duration-300"
             style={{
-              width: `${loadProgress}%`,
-              backgroundColor: "var(--border-light)",
+              padding: "16px",
+              backgroundColor: "var(--window-bg)",
+              textAlign: "center",
             }}
-          ></div>
-        </div>
-        <p className="text-xs font-bold text-[var(--text-primary)] tracking-wide animate-pulse">
-          Loading Programme Book... {loadProgress}%
-        </p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12 win-window">
-        <p className="text-red-400 font-bold text-sm mb-4">⚠️ {error}</p>
-        <button className="win-btn" onClick={() => window.location.reload()}>
-          Cuba Semula
-        </button>
-      </div>
-    );
-  }
-
-  const baseWidth = pagesData[0]?.width || 500;
-  const baseHeight = pagesData[0]?.height || 700;
-  const ratio = baseWidth / baseHeight;
-
-  let viewportHeight = isFullscreen ? window.innerHeight * 0.85 : 560;
-  if (isMobile) viewportHeight = isFullscreen ? window.innerHeight * 0.75 : 440;
-
-  const bookWidth = viewportHeight * ratio;
-  const bookHeight = viewportHeight;
-  const stableKey = `flip-${isMobile}-${isFullscreen}`;
-
-  return (
-    <div
-      ref={containerRef}
-      className="flex flex-col items-center w-full h-full transition-all duration-300"
-      style={{ backgroundColor: "var(--bg-primary)" }}
-    >
-      <div
-        className="w-full flex justify-center items-center p-1"
-        style={{ flex: 1, minHeight: 0, position: "relative" }}
-      >
-        <div className="win-sunken p-1 bg-[var(--flipbook-bg)] w-full max-w-5xl flex justify-center items-center overflow-hidden">
-          {pagesData.length > 0 && (
-            <HTMLFlipBook
-              key={stableKey}
-              ref={flipBookRef}
-              width={bookWidth}
-              height={bookHeight}
-              size="fixed"
-              drawShadow={true}
-              flippingTime={850}
-              usePortrait={isMobile}
-              singlePage={isMobile}
-              showCover={true}
-              startZIndex={10}
-              autoSize={false}
-              maxShadowOpacity={0.4}
-              mobileScrollSupport={true}
-              clickEventForward={true}
-              swipeDistance={30}
-              showPageCorners={true}
-              onFlip={onPageChange}
-              className="shadow-2xl"
-              style={{ background: "transparent" }}
-            >
-              {pagesData.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-center relative overflow-hidden"
-                  style={{ backgroundColor: "white" }}
-                >
-                  <img
-                    src={item.img}
-                    alt={`Page ${item.pageNumber}`}
-                    className="w-full h-full object-contain select-none"
-                    draggable={false}
-                    loading="lazy"
-                  />
-                  <span className="absolute bottom-2 right-2 text-[10px] font-mono text-gray-500 bg-white/80 px-1.5 py-0.5 rounded shadow-sm pointer-events-none">
-                    {item.pageNumber}
-                  </span>
-                </div>
-              ))}
-            </HTMLFlipBook>
-          )}
-        </div>
-
-        {showLastPageMsg && (
-          <div
-            className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 px-6 py-4 text-center win-window"
-            style={{ minWidth: "220px" }}
           >
             <p
-              className="font-bold text-sm mb-3"
-              style={{ color: "var(--text-primary)" }}
+              style={{
+                fontSize: "11px",
+                color: "var(--text-primary)",
+                marginBottom: "12px",
+              }}
             >
-              📖 This is the last page
+              {error}
             </p>
             <button
-              className="win-btn mx-auto text-xs"
-              onClick={() => setShowLastPageMsg(false)}
+              className="win-btn"
+              onClick={() => window.location.reload()}
             >
               OK
             </button>
           </div>
-        )}
-      </div>
-
-      <div
-        className="flex flex-wrap items-center justify-center gap-2 p-2 mt-2 w-full max-w-4xl win-window"
-        style={{ borderTop: "none" }}
-      >
-        <button
-          onClick={() => setIsMuted(!isMuted)}
-          className="win-btn"
-          title={isMuted ? "Enable Sound" : "Mute Sound"}
-        >
-          {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-        </button>
-
-        <div className="w-px h-6 bg-[var(--border-dark)] mx-1 opacity-50"></div>
-
-        <button
-          onClick={goPrev}
-          className="win-btn"
-          disabled={currentPage === 0}
-        >
-          <ChevronLeft size={16} /> Prev
-        </button>
-
-        <div
-          className="win-sunken px-3 py-1.5 flex items-center justify-center min-w-[100px]"
-          style={{ backgroundColor: "var(--bg-primary)" }}
-        >
-          <span
-            className="text-xs font-mono font-bold"
-            style={{ color: "var(--text-primary)" }}
-          >
-            {currentPage + 1} / {totalPages}
-          </span>
         </div>
-
-        <button
-          onClick={goNext}
-          className="win-btn"
-          disabled={currentPage >= totalPages - 1}
-        >
-          Next <ChevronRight size={16} />
-        </button>
-
-        <div className="w-px h-6 bg-[var(--border-dark)] mx-1 opacity-50"></div>
-
-        <button
-          onClick={toggleFullscreen}
-          className="win-btn"
-          title="Toggle Fullscreen"
-        >
-          {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-        </button>
       </div>
+    );
+
+  /* ── Page label (left/right even/odd) ── */
+  const pageLabel = (idx) => (
+    <span
+      style={{
+        position: "absolute",
+        bottom: "4px",
+        [idx % 2 === 0 ? "left" : "right"]: "6px",
+        fontSize: "9px",
+        fontFamily: "var(--font-win)",
+        color: "#888",
+        userSelect: "none",
+        pointerEvents: "none",
+      }}
+    >
+      {idx + 1}
+    </span>
+  );
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        width: "100%",
+        height: "100%",
+        backgroundColor: isFullscreen ? "var(--desktop-bg)" : "var(--inset-bg)",
+        position: isFullscreen ? "fixed" : "relative",
+        inset: isFullscreen ? 0 : "auto",
+        zIndex: isFullscreen ? 9999 : "auto",
+        padding: isFullscreen ? "8px 0 4px" : 0,
+      }}
+    >
+      {/* Loading dialog */}
+      {isLoading && <LoadingDialog progress={loadedCount} total={totalPages} />}
+
+      {/* ── Flipbook stage ── */}
+      {!isLoading && pagesData.length > 0 && (
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "100%",
+            minHeight: 0,
+            overflow: "hidden",
+            /* Give the browser a 3D compositing context so both flipNext AND
+             flipPrev share the same GPU layer — fixes reverse-direction jank */
+            perspective: "2000px",
+            perspectiveOrigin: "50% 50%",
+          }}
+        >
+          <HTMLFlipBook
+            key={stableKey}
+            ref={flipBookRef}
+            width={dims.w}
+            height={dims.h}
+            size="fixed"
+            drawShadow={
+              !isMobile
+            } /* shadow off on mobile — JS canvas shadow is #1 cause of flipPrev jank */
+            flippingTime={FLIP_MS} /* shorter on mobile = less jank window */
+            usePortrait={isMobile}
+            singlePage={isMobile}
+            showCover={true} /* AnyFlip behavior: cover centred, then spreads */
+            startZIndex={0}
+            autoSize={false}
+            maxShadowOpacity={isMobile ? 0 : 0.4}
+            mobileScrollSupport={
+              false
+            } /* off: swipe-right (prev) was competing with browser back gesture */
+            clickEventForward={true}
+            swipeDistance={
+              isMobile ? 40 : 20
+            } /* higher threshold on mobile prevents accidental triggers */
+            showPageCorners={
+              !isMobile
+            } /* corners off on mobile = fewer touch event conflicts */
+            useMouseEvents={true}
+            onFlip={onFlip}
+            style={{ margin: "auto" }}
+          >
+            {pagesData.map((item, idx) => (
+              <div
+                key={idx}
+                className="flip-page-inner"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  backgroundColor: "white",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  position: "relative",
+                  overflow: "hidden",
+                  transformStyle: "preserve-3d",
+                  WebkitTransformStyle: "preserve-3d",
+                }}
+              >
+                <img
+                  src={item.img}
+                  alt={`Halaman ${item.pageNumber}`}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                    pointerEvents: "none",
+                    userSelect: "none",
+                    display: "block",
+                  }}
+                  draggable={false}
+                />
+                {pageLabel(idx)}
+              </div>
+            ))}
+          </HTMLFlipBook>
+        </div>
+      )}
+
+      {/* ── End-of-book message (Win2000 dialog style) ── */}
+      {showEndMsg && (
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            zIndex: 100,
+          }}
+        >
+          <div className="win-window" style={{ minWidth: 200 }}>
+            <div className="win-titlebar">
+              <div className="win-titlebar-label">
+                <span>📖</span>
+                <span>Programme Book</span>
+              </div>
+            </div>
+            <div
+              style={{
+                padding: "12px 16px",
+                backgroundColor: "var(--window-bg)",
+                textAlign: "center",
+                fontSize: "11px",
+                color: "var(--text-primary)",
+              }}
+            >
+              Ini adalah halaman terakhir.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Control bar (Win2000 toolbar style) ── */}
+      {!isLoading && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "4px",
+            padding: "4px 6px",
+            width: "100%",
+            backgroundColor: "var(--button-face)",
+            borderTop: "2px solid var(--border-hi)",
+            flexShrink: 0,
+            flexWrap: "wrap",
+          }}
+        >
+          {/* Left: sound + download */}
+          <div style={{ display: "flex", gap: "3px", alignItems: "center" }}>
+            <TBtn
+              onClick={() => setIsMuted((m) => !m)}
+              title={isMuted ? "Enable Sound" : "Mute Sound"}
+            >
+              {isMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+            </TBtn>
+            <div className="win-sep-v" />
+            <TBtn onClick={downloadPdf} title="Download PDF">
+              <Download size={13} />
+              <span style={{ display: isMobile ? "none" : "inline" }}>
+                Save
+              </span>
+            </TBtn>
+          </div>
+
+          {/* Centre: navigation */}
+          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            <TBtn onClick={goPrev} disabled={currentPage === 0}>
+              <ChevronLeft size={13} /> Prev
+            </TBtn>
+
+            {/* Page counter — sunken style */}
+            <div
+              className="win-sunken"
+              style={{
+                padding: "2px 10px",
+                fontSize: "11px",
+                fontFamily: "var(--font-win)",
+                color: "var(--text-primary)",
+                minWidth: "64px",
+                textAlign: "center",
+                backgroundColor: "var(--inset-bg)",
+                userSelect: "none",
+              }}
+            >
+              {currentPage + 1} / {pagesData.length}
+            </div>
+
+            <TBtn onClick={goNext}>
+              Next <ChevronRight size={13} />
+            </TBtn>
+          </div>
+
+          {/* Right: fullscreen */}
+          <div style={{ display: "flex", gap: "3px", alignItems: "center" }}>
+            <TBtn
+              onClick={toggleFullscreen}
+              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+            >
+              {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+              <span style={{ display: isMobile ? "none" : "inline" }}>
+                {isFullscreen ? "Restore" : "Fullscreen"}
+              </span>
+            </TBtn>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
