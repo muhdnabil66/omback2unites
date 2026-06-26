@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import HTMLFlipBook from "@marvellousptc/react-pageflip";
-import * as pdfjsLib from "pdfjs-dist";
 import {
   Volume2,
   VolumeX,
@@ -13,12 +12,6 @@ import {
   Download,
 } from "lucide-react";
 
-if (typeof window !== "undefined") {
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-}
-
-/* ── Win2000 Loading Dialog ── */
 function LoadingDialog({ progress, total }) {
   const pct = total > 0 ? Math.round((progress / total) * 100) : 0;
   return (
@@ -53,7 +46,7 @@ function LoadingDialog({ progress, total }) {
               marginBottom: "10px",
             }}
           >
-            Rendering pages, please wait...
+            Loading pages, please wait...
           </p>
           <div className="win-progress-track" style={{ marginBottom: "6px" }}>
             <div
@@ -79,7 +72,6 @@ function LoadingDialog({ progress, total }) {
   );
 }
 
-/* ── Toolbar Button (compact Win2000) ── */
 function TBtn({ onClick, disabled, title, children }) {
   return (
     <button
@@ -94,10 +86,14 @@ function TBtn({ onClick, disabled, title, children }) {
   );
 }
 
-export default function PdfFlipBook({ pdfUrl, fileName }) {
-  const [pagesData, setPagesData] = useState([]);
-  const [loadedCount, setLoadedCount] = useState(0);
+export default function PdfFlipBook({
+  pdfUrl,
+  fileName,
+  targetPage,
+  onPageFlipped,
+}) {
   const [totalPages, setTotalPages] = useState(0);
+  const [loadedCount, setLoadedCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
@@ -106,20 +102,67 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
   const [isMobile, setIsMobile] = useState(false);
   const [dims, setDims] = useState({ w: 480, h: 640 });
   const [showEndMsg, setShowEndMsg] = useState(false);
+  const [imageDimensions, setImageDimensions] = useState({
+    width: 0,
+    height: 0,
+  });
 
   const flipBookRef = useRef(null);
   const containerRef = useRef(null);
   const isFlipping = useRef(false);
   const resizeTimer = useRef(null);
+  const hasFlipped = useRef(false);
 
-  /* ── Responsive dimensions ── */
+  // ── Detect pages ──
+  useEffect(() => {
+    let cancelled = false;
+    const checkPages = async () => {
+      let count = 0;
+      let loaded = 0;
+      try {
+        for (let i = 1; i <= 30; i++) {
+          if (cancelled) return;
+          const pageNum = String(i).padStart(4, "0");
+          const src = `/pages/programbookreal_page-${pageNum}.jpg`;
+          const res = await fetch(src, { method: "HEAD" });
+          if (!res.ok) break;
+          const img = new Image();
+          img.src = src;
+          await new Promise((resolve, reject) => {
+            img.onload = () => resolve(img);
+            img.onerror = () => reject();
+          });
+          count = i;
+          loaded++;
+          setLoadedCount(loaded);
+          if (i === 1) {
+            setImageDimensions({
+              width: img.naturalWidth,
+              height: img.naturalHeight,
+            });
+          }
+        }
+        if (!cancelled) setTotalPages(count);
+      } catch (err) {
+        if (!cancelled) setError("Gagal mengesan halaman.");
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    checkPages();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ── Responsive dimensions ──
   const recalcDims = useCallback(() => {
-    if (!pagesData.length) return;
-    const base = pagesData[0];
-    const ratio = base.width / base.height;
+    let ratio = 0.71;
+    if (imageDimensions.width > 0 && imageDimensions.height > 0) {
+      ratio = imageDimensions.width / imageDimensions.height;
+    }
     const mobile = window.innerWidth < 768;
     const fs = !!document.fullscreenElement;
-
     let h;
     if (fs) {
       h = mobile ? window.innerHeight * 0.72 : window.innerHeight * 0.82;
@@ -129,7 +172,7 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
     }
     setDims({ w: Math.round(h * ratio), h: Math.round(h) });
     setIsMobile(mobile);
-  }, [pagesData]);
+  }, [imageDimensions]);
 
   useEffect(() => {
     const onResize = () => {
@@ -144,55 +187,6 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
     };
   }, [recalcDims]);
 
-  /* ── PDF rendering ── */
-  useEffect(() => {
-    if (!pdfUrl) return;
-    let cancelled = false;
-
-    const loadPdf = async () => {
-      setIsLoading(true);
-      setError(null);
-      setLoadedCount(0);
-      setPagesData([]);
-      try {
-        const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
-        setTotalPages(pdf.numPages);
-        const items = [];
-
-        for (let i = 1; i <= pdf.numPages; i++) {
-          if (cancelled) return;
-          const page = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale: 2.0 }); // HD render
-          const canvas = document.createElement("canvas");
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          const ctx = canvas.getContext("2d");
-          await page.render({ canvasContext: ctx, viewport }).promise;
-
-          items.push({
-            img: canvas.toDataURL("image/png"),
-            width: viewport.width,
-            height: viewport.height,
-            pageNumber: i,
-          });
-          if (!cancelled) setLoadedCount(i);
-        }
-
-        if (!cancelled) setPagesData(items);
-      } catch (err) {
-        if (!cancelled) setError("Gagal memuatkan dokumen. Sila muat semula.");
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-
-    loadPdf();
-    return () => {
-      cancelled = true;
-    };
-  }, [pdfUrl]);
-
-  /* ── Fullscreen listener ── */
   useEffect(() => {
     const onChange = () => {
       const fs = !!document.fullscreenElement;
@@ -203,10 +197,7 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, [recalcDims]);
 
-  /* ── Navigation ── */
-  // flipPrev on mobile needs rAF so the browser commits the current
-  // composited frame before the reverse-direction animation begins.
-  // Without it, the JS thread kicks off the left-corner flip mid-paint → jank.
+  // ── Navigation ──
   const FLIP_MS = isMobile ? 580 : 750;
 
   const goPrev = useCallback(() => {
@@ -223,7 +214,7 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
 
   const goNext = useCallback(() => {
     if (isFlipping.current || !flipBookRef.current) return;
-    const lastIdx = isMobile ? pagesData.length - 1 : pagesData.length - 2;
+    const lastIdx = isMobile ? totalPages - 1 : totalPages - 2;
     if (currentPage >= lastIdx) {
       setShowEndMsg(true);
       setTimeout(() => setShowEndMsg(false), 2000);
@@ -236,7 +227,7 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
     setTimeout(() => {
       isFlipping.current = false;
     }, FLIP_MS + 80);
-  }, [currentPage, pagesData.length, isMobile, FLIP_MS]);
+  }, [currentPage, totalPages, isMobile, FLIP_MS]);
 
   const onFlip = useCallback(
     (e) => {
@@ -268,13 +259,53 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
     a.click();
   };
 
-  /* Stable key — only remount on layout/mode switch */
+  // ── FLIP TO TARGET PAGE (FINAL FIX) ──
+  useEffect(() => {
+    if (!targetPage || targetPage < 1 || totalPages === 0 || isLoading) {
+      return;
+    }
+
+    const pageIndex = targetPage - 1;
+    if (pageIndex >= totalPages) return;
+
+    // Reset flag untuk target baru
+    hasFlipped.current = false;
+
+    const tryFlip = () => {
+      const flip = flipBookRef.current?.pageFlip();
+      if (flip && typeof flip.flip === "function") {
+        try {
+          // Method BETUL: flip(pageIndex)
+          flip.flip(pageIndex);
+          hasFlipped.current = true;
+          if (onPageFlipped) onPageFlipped();
+          console.log("✅ Flip to page", targetPage, "success!");
+        } catch (e) {
+          console.log("❌ Flip error:", e);
+          setTimeout(tryFlip, 200);
+        }
+      } else {
+        setTimeout(tryFlip, 100);
+      }
+    };
+
+    // Tunggu 300ms untuk pastikan flipbook siap
+    const timer = setTimeout(tryFlip, 300);
+    return () => clearTimeout(timer);
+  }, [targetPage, totalPages, isLoading, onPageFlipped]);
+
   const stableKey = useMemo(
     () => `flip-${isMobile}-${isFullscreen}`,
     [isMobile, isFullscreen],
   );
 
-  /* ── Error state ── */
+  const pagesArray = useMemo(() => {
+    return Array.from({ length: totalPages }, (_, i) => {
+      const pageNum = String(i + 1).padStart(4, "0");
+      return `/pages/programbookreal_page-${pageNum}.jpg`;
+    });
+  }, [totalPages]);
+
   if (error)
     return (
       <div
@@ -320,7 +351,6 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
       </div>
     );
 
-  /* ── Page label (left/right even/odd) ── */
   const pageLabel = (idx) => (
     <span
       style={{
@@ -354,11 +384,11 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
         padding: isFullscreen ? "8px 0 4px" : 0,
       }}
     >
-      {/* Loading dialog */}
-      {isLoading && <LoadingDialog progress={loadedCount} total={totalPages} />}
+      {isLoading && (
+        <LoadingDialog progress={loadedCount} total={totalPages || 0} />
+      )}
 
-      {/* ── Flipbook stage ── */}
-      {!isLoading && pagesData.length > 0 && (
+      {!isLoading && totalPages > 0 && (
         <div
           style={{
             flex: 1,
@@ -368,8 +398,6 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
             width: "100%",
             minHeight: 0,
             overflow: "hidden",
-            /* Give the browser a 3D compositing context so both flipNext AND
-             flipPrev share the same GPU layer — fixes reverse-direction jank */
             perspective: "2000px",
             perspectiveOrigin: "50% 50%",
           }}
@@ -380,31 +408,23 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
             width={dims.w}
             height={dims.h}
             size="fixed"
-            drawShadow={
-              !isMobile
-            } /* shadow off on mobile — JS canvas shadow is #1 cause of flipPrev jank */
-            flippingTime={FLIP_MS} /* shorter on mobile = less jank window */
+            drawShadow={!isMobile}
+            flippingTime={FLIP_MS}
             usePortrait={isMobile}
             singlePage={isMobile}
-            showCover={true} /* AnyFlip behavior: cover centred, then spreads */
+            showCover={true}
             startZIndex={0}
             autoSize={false}
             maxShadowOpacity={isMobile ? 0 : 0.4}
-            mobileScrollSupport={
-              false
-            } /* off: swipe-right (prev) was competing with browser back gesture */
+            mobileScrollSupport={false}
             clickEventForward={true}
-            swipeDistance={
-              isMobile ? 40 : 20
-            } /* higher threshold on mobile prevents accidental triggers */
-            showPageCorners={
-              !isMobile
-            } /* corners off on mobile = fewer touch event conflicts */
+            swipeDistance={isMobile ? 40 : 20}
+            showPageCorners={!isMobile}
             useMouseEvents={true}
             onFlip={onFlip}
             style={{ margin: "auto" }}
           >
-            {pagesData.map((item, idx) => (
+            {pagesArray.map((src, idx) => (
               <div
                 key={idx}
                 className="flip-page-inner"
@@ -422,8 +442,9 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
                 }}
               >
                 <img
-                  src={item.img}
-                  alt={`Halaman ${item.pageNumber}`}
+                  src={src}
+                  alt={`Halaman ${idx + 1}`}
+                  loading={idx < 3 ? "eager" : "lazy"}
                   style={{
                     width: "100%",
                     height: "100%",
@@ -433,6 +454,9 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
                     display: "block",
                   }}
                   draggable={false}
+                  onLoad={() => {
+                    setLoadedCount((prev) => Math.min(prev + 1, totalPages));
+                  }}
                 />
                 {pageLabel(idx)}
               </div>
@@ -441,7 +465,6 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
         </div>
       )}
 
-      {/* ── End-of-book message (Win2000 dialog style) ── */}
       {showEndMsg && (
         <div
           style={{
@@ -474,7 +497,6 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
         </div>
       )}
 
-      {/* ── Control bar (Win2000 toolbar style) ── */}
       {!isLoading && (
         <div
           style={{
@@ -490,7 +512,6 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
             flexWrap: "wrap",
           }}
         >
-          {/* Left: sound + download */}
           <div style={{ display: "flex", gap: "3px", alignItems: "center" }}>
             <TBtn
               onClick={() => setIsMuted((m) => !m)}
@@ -507,13 +528,10 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
             </TBtn>
           </div>
 
-          {/* Centre: navigation */}
           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
             <TBtn onClick={goPrev} disabled={currentPage === 0}>
               <ChevronLeft size={13} /> Prev
             </TBtn>
-
-            {/* Page counter — sunken style */}
             <div
               className="win-sunken"
               style={{
@@ -527,15 +545,13 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
                 userSelect: "none",
               }}
             >
-              {currentPage + 1} / {pagesData.length}
+              {totalPages > 0 ? `${currentPage + 1} / ${totalPages}` : "…"}
             </div>
-
             <TBtn onClick={goNext}>
               Next <ChevronRight size={13} />
             </TBtn>
           </div>
 
-          {/* Right: fullscreen */}
           <div style={{ display: "flex", gap: "3px", alignItems: "center" }}>
             <TBtn
               onClick={toggleFullscreen}

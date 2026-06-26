@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import StartMenu from "./StartMenu";
 
 /* ── Live clock ── */
 function SysClock() {
@@ -34,7 +33,6 @@ function SysClock() {
 }
 
 export default function WindowsTaskbar() {
-  const [isStartOpen, setIsStartOpen] = useState(false);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const audioRef = useRef(null);
 
@@ -56,26 +54,14 @@ export default function WindowsTaskbar() {
     setIsMusicPlaying((p) => !p);
   }, [isMusicPlaying]);
 
-  const handleMenuSelect = useCallback((id) => {
-    const msgs = {
-      members: "Members list — coming soon.",
-      tentatives: "Program schedule — coming soon.",
-      layout: "Layout view — coming soon.",
-      about: "De'CDcrew | OMback2unite 2026\nPowered by AtlasFlux.",
-      shutdown: "Thank you for attending! 🎉",
-    };
-    alert(msgs[id] ?? `${id} — coming soon.`);
-  }, []);
-
   return (
     <div className="win-taskbar" style={{ position: "relative" }}>
-      {/* ── Start button ── */}
+      {/* ── Start Button (hiasan je, tak buat apa-apa) ── */}
       <button
         className="win-start-btn"
-        onClick={() => setIsStartOpen((o) => !o)}
-        style={{ fontWeight: "bold" }}
+        style={{ fontWeight: "bold", cursor: "default" }}
+        onClick={() => {}} // kosong – langsung tak keluar menu
       >
-        {/* Mini Windows-flag style icon */}
         <svg
           width="14"
           height="14"
@@ -91,10 +77,9 @@ export default function WindowsTaskbar() {
         <span style={{ fontStyle: "italic" }}>Start</span>
       </button>
 
-      {/* Separator after Start */}
       <div className="win-sep-v" />
 
-      {/* ── Quick Launch strip ── */}
+      {/* ── Quick Launch ── */}
       <div
         style={{
           display: "flex",
@@ -109,7 +94,7 @@ export default function WindowsTaskbar() {
 
       <div className="win-sep-v" />
 
-      {/* ── Active window button ── */}
+      {/* ── Active window ── */}
       <div className="win-taskbar-window">
         <span style={{ fontSize: "13px" }}>📄</span>
         <span>OMback2unite — Program Book</span>
@@ -117,7 +102,6 @@ export default function WindowsTaskbar() {
 
       {/* ── System Tray ── */}
       <div className="win-systray">
-        {/* Music toggle */}
         <button
           onClick={toggleMusic}
           title={isMusicPlaying ? "Pause Music" : "Play Music"}
@@ -136,7 +120,6 @@ export default function WindowsTaskbar() {
         >
           {isMusicPlaying ? "🔊" : "🔇"}
         </button>
-
         <div
           style={{
             width: "1px",
@@ -145,16 +128,8 @@ export default function WindowsTaskbar() {
             flexShrink: 0,
           }}
         />
-
         <SysClock />
       </div>
-
-      {/* Start Menu */}
-      <StartMenu
-        isOpen={isStartOpen}
-        onClose={() => setIsStartOpen(false)}
-        onSelect={handleMenuSelect}
-      />
     </div>
   );
 }

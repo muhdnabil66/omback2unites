@@ -18,15 +18,10 @@ export default function StartMenu({ isOpen, onClose, onSelect }) {
   if (!isOpen) return null;
 
   const menuItems = [
-    { id: "members", label: "Members", icon: "👥", desc: "View member list" },
-    {
-      id: "tentatives",
-      label: "Tentatives",
-      icon: "📅",
-      desc: "Program schedule",
-    },
-    { id: "layout", label: "Layout", icon: "📐", desc: "Page layout info" },
-    { id: "about", label: "About", icon: "ℹ️", desc: "About this event" },
+    { id: "members", label: "Members", icon: "👥", desc: "Go to page 12" },
+    { id: "tentatives", label: "Tentatives", icon: "📅", desc: "Go to page 8" },
+    { id: "about", label: "About", icon: "ℹ️", desc: "Go to page 2" },
+    // Layout dibuang
   ];
 
   return (
@@ -45,7 +40,7 @@ export default function StartMenu({ isOpen, onClose, onSelect }) {
         userSelect: "none",
       }}
     >
-      {/* ── Left sidebar (Win2000 blue strip style in brown theme) ── */}
+      {/* Left sidebar */}
       <div
         style={{
           width: "36px",
@@ -77,7 +72,7 @@ export default function StartMenu({ isOpen, onClose, onSelect }) {
         </span>
       </div>
 
-      {/* ── Right panel (menu items) ── */}
+      {/* Right panel */}
       <div
         style={{
           flex: 1,
@@ -86,7 +81,6 @@ export default function StartMenu({ isOpen, onClose, onSelect }) {
           flexDirection: "column",
         }}
       >
-        {/* Program items */}
         <div style={{ flex: 1, padding: "4px 0" }}>
           {menuItems.map((item) => (
             <StartMenuItem
@@ -100,10 +94,8 @@ export default function StartMenu({ isOpen, onClose, onSelect }) {
           ))}
         </div>
 
-        {/* Separator */}
         <div className="win-sep-h" style={{ margin: "0 4px" }} />
 
-        {/* Shut Down row */}
         <div style={{ padding: "4px 0" }}>
           <StartMenuItem
             item={{

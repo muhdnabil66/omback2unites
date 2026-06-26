@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import dynamic from "next/dynamic";
 import WindowsTaskbar from "./components/WindowsTaskbar";
 
@@ -50,15 +51,18 @@ const PdfFlipBook = dynamic(() => import("./components/PdfFlipBook"), {
 });
 
 export default function Home() {
-  const pdfUrl = "/programbook-compressed.pdf";
-  const fileName = "OMback2unite Program Book";
+  const pdfUrl = "/programbookreal.pdf";
+  const fileName = "Program Book";
+
+  // State untuk navigasi halaman (1-index)
+  const [targetPage, setTargetPage] = useState(null);
 
   return (
     <div
       className="min-h-screen flex flex-col"
       style={{ backgroundColor: "var(--desktop-bg)" }}
     >
-      {/* ── Logo navbar (event branding strip) ── */}
+      {/* ── Logo navbar ── */}
       <div className="sticky top-0 z-10 navbar-solid">
         <div className="container mx-auto px-4 py-1 flex justify-center items-center">
           <div className="flex items-center justify-center gap-4 md:gap-6">
@@ -83,13 +87,12 @@ export default function Home() {
 
       {/* ── Desktop area ── */}
       <div className="flex-1 p-2 md:p-3" style={{ minHeight: 0 }}>
-        {/* Window frame */}
         <div className="win-window flex flex-col" style={{ height: "100%" }}>
           {/* Title bar */}
           <div className="win-titlebar">
             <div className="win-titlebar-label">
               <span style={{ fontSize: "13px", lineHeight: 1 }}>📄</span>
-              <span>{fileName} — De'CDcrew</span>
+              <span>{fileName} — OM Back2Unite</span>
             </div>
             <div className="win-titlebar-buttons">
               <div className="win-titlebar-btn" title="Minimize">
@@ -141,18 +144,20 @@ export default function Home() {
             className="win-inset flex-1 m-1"
             style={{ overflow: "hidden", minHeight: 0 }}
           >
-            <PdfFlipBook pdfUrl={pdfUrl} fileName={fileName} />
+            <PdfFlipBook
+              pdfUrl={pdfUrl}
+              fileName={fileName}
+              targetPage={targetPage}
+              onPageFlipped={() => setTargetPage(null)} // reset selepas flip
+            />
           </div>
 
           {/* Status bar */}
           <div className="win-statusbar">
-            {/* Always visible: ready indicator */}
             <div className="win-statusbar-panel" style={{ flexShrink: 0 }}>
               <span>📖</span>
               <span>Ready</span>
             </div>
-
-            {/* Hide filename on mobile — too wide */}
             <div
               className="win-statusbar-panel hidden md:flex"
               style={{ flex: 1, overflow: "hidden" }}
@@ -167,8 +172,6 @@ export default function Home() {
                 {fileName}
               </span>
             </div>
-
-            {/* Social links — icon only on mobile, icon+text on desktop */}
             <a
               href="https://www.instagram.com/de.cdcrew?igsh=MTkyZmR3Y3BqenFwcg=="
               target="_blank"
@@ -185,7 +188,6 @@ export default function Home() {
               <InstagramIcon />
               <span className="hidden md:inline">Instagram</span>
             </a>
-
             <a
               href="https://www.tiktok.com/@de.cdcrew?_r=1&_t=ZS-96ZhXk3VXoz"
               target="_blank"
@@ -202,8 +204,6 @@ export default function Home() {
               <TikTokIcon />
               <span className="hidden md:inline">TikTok</span>
             </a>
-
-            {/* Resize grip — desktop only */}
             <div className="win-statusbar-grip hidden md:grid">
               {[...Array(9)].map((_, i) => (
                 <span
@@ -221,11 +221,10 @@ export default function Home() {
             </div>
           </div>
         </div>
-        {/* /win-window */}
       </div>
 
-      {/* ── Windows 2000 Taskbar ── */}
-      <WindowsTaskbar />
+      {/* ── Taskbar dengan navigation callback ── */}
+      <WindowsTaskbar onSelectPage={setTargetPage} />
     </div>
   );
 }
