@@ -491,7 +491,7 @@ export default function PdfFlipBook({
                 color: "var(--text-primary)",
               }}
             >
-              Ini adalah halaman terakhir.
+              This is the last page.
             </div>
           </div>
         </div>
