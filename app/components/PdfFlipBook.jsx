@@ -12,8 +12,7 @@ import {
   Download,
 } from "lucide-react";
 
-function LoadingDialog({ progress, total }) {
-  const pct = total > 0 ? Math.round((progress / total) * 100) : 0;
+function LoadingDialog() {
   return (
     <div
       style={{
@@ -52,20 +51,11 @@ function LoadingDialog({ progress, total }) {
             <div
               className="win-progress-fill"
               style={{
-                width: `${pct}%`,
+                width: "100%",
                 transition: "width 0.2s ease",
               }}
             />
           </div>
-          <p
-            style={{
-              fontSize: "10px",
-              color: "var(--text-secondary)",
-              textAlign: "right",
-            }}
-          >
-            {progress} / {total > 0 ? total : "…"} pages
-          </p>
         </div>
       </div>
     </div>
@@ -86,16 +76,10 @@ function TBtn({ onClick, disabled, title, children }) {
   );
 }
 
-export default function PdfFlipBook({
-  pdfUrl,
-  fileName,
-  targetPage,
-  onPageFlipped,
-}) {
-  const [totalPages, setTotalPages] = useState(0);
-  const [loadedCount, setLoadedCount] = useState(0);
+export default function PdfFlipBook({ pdfUrl, fileName }) {
+  // ── HARDCORE totalPages = 24 (cepat loading) ──
+  const totalPages = 24;
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [isMuted, setIsMuted] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -111,48 +95,23 @@ export default function PdfFlipBook({
   const containerRef = useRef(null);
   const isFlipping = useRef(false);
   const resizeTimer = useRef(null);
-  const hasFlipped = useRef(false);
 
-  // ── Detect pages ──
+  // ── Ambil dimensi imej pertama (untuk nisbah) ──
   useEffect(() => {
-    let cancelled = false;
-    const checkPages = async () => {
-      let count = 0;
-      let loaded = 0;
-      try {
-        for (let i = 1; i <= 30; i++) {
-          if (cancelled) return;
-          const pageNum = String(i).padStart(4, "0");
-          const src = `/pages/programbookreal_page-${pageNum}.jpg`;
-          const res = await fetch(src, { method: "HEAD" });
-          if (!res.ok) break;
-          const img = new Image();
-          img.src = src;
-          await new Promise((resolve, reject) => {
-            img.onload = () => resolve(img);
-            img.onerror = () => reject();
-          });
-          count = i;
-          loaded++;
-          setLoadedCount(loaded);
-          if (i === 1) {
-            setImageDimensions({
-              width: img.naturalWidth,
-              height: img.naturalHeight,
-            });
-          }
-        }
-        if (!cancelled) setTotalPages(count);
-      } catch (err) {
-        if (!cancelled) setError("Gagal mengesan halaman.");
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
+    const img = new Image();
+    img.onload = () => {
+      setImageDimensions({
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+      });
+      setIsLoading(false);
     };
-    checkPages();
-    return () => {
-      cancelled = true;
+    img.onerror = () => {
+      // fallback ratio
+      setImageDimensions({ width: 800, height: 1120 });
+      setIsLoading(false);
     };
+    img.src = "/pages/programbookreal_page-0001.webp";
   }, []);
 
   // ── Responsive dimensions ──
@@ -259,97 +218,18 @@ export default function PdfFlipBook({
     a.click();
   };
 
-  // ── FLIP TO TARGET PAGE (FINAL FIX) ──
-  useEffect(() => {
-    if (!targetPage || targetPage < 1 || totalPages === 0 || isLoading) {
-      return;
-    }
-
-    const pageIndex = targetPage - 1;
-    if (pageIndex >= totalPages) return;
-
-    // Reset flag untuk target baru
-    hasFlipped.current = false;
-
-    const tryFlip = () => {
-      const flip = flipBookRef.current?.pageFlip();
-      if (flip && typeof flip.flip === "function") {
-        try {
-          // Method BETUL: flip(pageIndex)
-          flip.flip(pageIndex);
-          hasFlipped.current = true;
-          if (onPageFlipped) onPageFlipped();
-          console.log("✅ Flip to page", targetPage, "success!");
-        } catch (e) {
-          console.log("❌ Flip error:", e);
-          setTimeout(tryFlip, 200);
-        }
-      } else {
-        setTimeout(tryFlip, 100);
-      }
-    };
-
-    // Tunggu 300ms untuk pastikan flipbook siap
-    const timer = setTimeout(tryFlip, 300);
-    return () => clearTimeout(timer);
-  }, [targetPage, totalPages, isLoading, onPageFlipped]);
-
   const stableKey = useMemo(
     () => `flip-${isMobile}-${isFullscreen}`,
     [isMobile, isFullscreen],
   );
 
+  // ── Generate array imej WebP ──
   const pagesArray = useMemo(() => {
     return Array.from({ length: totalPages }, (_, i) => {
       const pageNum = String(i + 1).padStart(4, "0");
-      return `/pages/programbookreal_page-${pageNum}.jpg`;
+      return `/pages/programbookreal_page-${pageNum}.webp`;
     });
   }, [totalPages]);
-
-  if (error)
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100%",
-          backgroundColor: "var(--inset-bg)",
-        }}
-      >
-        <div className="win-window" style={{ width: 280 }}>
-          <div className="win-titlebar">
-            <div className="win-titlebar-label">
-              <span>⚠️</span>
-              <span>Error</span>
-            </div>
-          </div>
-          <div
-            style={{
-              padding: "16px",
-              backgroundColor: "var(--window-bg)",
-              textAlign: "center",
-            }}
-          >
-            <p
-              style={{
-                fontSize: "11px",
-                color: "var(--text-primary)",
-                marginBottom: "12px",
-              }}
-            >
-              {error}
-            </p>
-            <button
-              className="win-btn"
-              onClick={() => window.location.reload()}
-            >
-              OK
-            </button>
-          </div>
-        </div>
-      </div>
-    );
 
   const pageLabel = (idx) => (
     <span
@@ -384,9 +264,7 @@ export default function PdfFlipBook({
         padding: isFullscreen ? "8px 0 4px" : 0,
       }}
     >
-      {isLoading && (
-        <LoadingDialog progress={loadedCount} total={totalPages || 0} />
-      )}
+      {isLoading && <LoadingDialog />}
 
       {!isLoading && totalPages > 0 && (
         <div
@@ -454,9 +332,6 @@ export default function PdfFlipBook({
                     display: "block",
                   }}
                   draggable={false}
-                  onLoad={() => {
-                    setLoadedCount((prev) => Math.min(prev + 1, totalPages));
-                  }}
                 />
                 {pageLabel(idx)}
               </div>
@@ -479,7 +354,7 @@ export default function PdfFlipBook({
             <div className="win-titlebar">
               <div className="win-titlebar-label">
                 <span>📖</span>
-                <span>Programme Book</span>
+                <span>Program Book</span>
               </div>
             </div>
             <div
