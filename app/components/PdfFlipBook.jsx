@@ -10,6 +10,7 @@ import {
   Maximize2,
   Minimize2,
   Download,
+  HelpCircle,
 } from "lucide-react";
 
 function LoadingDialog() {
@@ -69,7 +70,13 @@ function TBtn({ onClick, disabled, title, children }) {
       disabled={disabled}
       title={title}
       className="win-btn"
-      style={{ padding: "3px 8px", fontSize: "11px" }}
+      style={{
+        padding: "3px 8px",
+        fontSize: "11px",
+        minHeight: "28px",
+        minWidth: "32px",
+        touchAction: "manipulation",
+      }}
     >
       {children}
     </button>
@@ -77,7 +84,6 @@ function TBtn({ onClick, disabled, title, children }) {
 }
 
 export default function PdfFlipBook({ pdfUrl, fileName }) {
-  // ── HARDCORE totalPages = 24 (cepat loading) ──
   const totalPages = 24;
   const [isLoading, setIsLoading] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
@@ -91,12 +97,53 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
     height: 0,
   });
 
+  // ── Guide state ──
+  const [showGuide, setShowGuide] = useState(false);
+
   const flipBookRef = useRef(null);
   const containerRef = useRef(null);
   const isFlipping = useRef(false);
   const resizeTimer = useRef(null);
+  const audioRef = useRef(null);
+  const guideTimerRef = useRef(null);
 
-  // ── Ambil dimensi imej pertama (untuk nisbah) ──
+  // ── Show guide every time page loads ──
+  useEffect(() => {
+    // Delay supaya flipbook sempat render
+    const timer = setTimeout(() => {
+      setShowGuide(true);
+      // Auto hide after 5 seconds
+      guideTimerRef.current = setTimeout(() => {
+        hideGuide();
+      }, 5000);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const hideGuide = () => {
+    setShowGuide(false);
+    if (guideTimerRef.current) {
+      clearTimeout(guideTimerRef.current);
+    }
+  };
+
+  // ── Function to show guide manually (via ? button) ──
+  const showGuideManually = () => {
+    setShowGuide(true);
+    if (guideTimerRef.current) clearTimeout(guideTimerRef.current);
+    guideTimerRef.current = setTimeout(() => {
+      hideGuide();
+    }, 5000);
+  };
+
+  // ── Audio preload ──
+  useEffect(() => {
+    audioRef.current = new Audio("/page-flip.mp3");
+    audioRef.current.preload = "auto";
+    audioRef.current.load();
+  }, []);
+
+  // ── Ambil dimensi imej pertama ──
   useEffect(() => {
     const img = new Image();
     img.onload = () => {
@@ -107,14 +154,13 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
       setIsLoading(false);
     };
     img.onerror = () => {
-      // fallback ratio
       setImageDimensions({ width: 800, height: 1120 });
       setIsLoading(false);
     };
     img.src = "/pages/programbookreal_page-0001.webp";
   }, []);
 
-  // ── Responsive dimensions ──
+  // ── Responsive ──
   const recalcDims = useCallback(() => {
     let ratio = 0.71;
     if (imageDimensions.width > 0 && imageDimensions.height > 0) {
@@ -191,13 +237,21 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
   const onFlip = useCallback(
     (e) => {
       setCurrentPage(e.data);
-      if (!isMuted) {
-        const audio = new Audio("/page-flip.mp3");
-        audio.play().catch(() => {});
+
+      // ── Hide guide on first flip ──
+      if (showGuide) {
+        hideGuide();
+      }
+
+      if (!isMuted && audioRef.current) {
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {});
+        }
       }
       isFlipping.current = false;
     },
-    [isMuted],
+    [isMuted, showGuide],
   );
 
   const toggleFullscreen = async () => {
@@ -223,7 +277,6 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
     [isMobile, isFullscreen],
   );
 
-  // ── Generate array imej WebP ──
   const pagesArray = useMemo(() => {
     return Array.from({ length: totalPages }, (_, i) => {
       const pageNum = String(i + 1).padStart(4, "0");
@@ -262,6 +315,7 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
         inset: isFullscreen ? 0 : "auto",
         zIndex: isFullscreen ? 9999 : "auto",
         padding: isFullscreen ? "8px 0 4px" : 0,
+        touchAction: "pan-y",
       }}
     >
       {isLoading && <LoadingDialog />}
@@ -300,7 +354,7 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
             showPageCorners={!isMobile}
             useMouseEvents={true}
             onFlip={onFlip}
-            style={{ margin: "auto" }}
+            style={{ margin: "auto", touchAction: "none" }}
           >
             {pagesArray.map((src, idx) => (
               <div
@@ -354,7 +408,7 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
             <div className="win-titlebar">
               <div className="win-titlebar-label">
                 <span>📖</span>
-                <span>Program Book</span>
+                <span>Programme Book</span>
               </div>
             </div>
             <div
@@ -401,6 +455,10 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
                 Save
               </span>
             </TBtn>
+            {/* ── Help button ── */}
+            <TBtn onClick={showGuideManually} title="Show guide again">
+              <HelpCircle size={13} />
+            </TBtn>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
@@ -440,6 +498,138 @@ export default function PdfFlipBook({ pdfUrl, fileName }) {
           </div>
         </div>
       )}
+
+      {/* ── GUIDE OVERLAY ── */}
+      {showGuide && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 50,
+            backgroundColor: "rgba(0,0,0,0.4)",
+            backdropFilter: "blur(4px)",
+            WebkitBackdropFilter: "blur(4px)",
+            animation: "fadeIn 0.4s ease",
+            padding: "16px",
+            touchAction: "none",
+          }}
+          onClick={hideGuide}
+        >
+          <div
+            className="win-window"
+            style={{
+              maxWidth: isMobile ? "320px" : "400px",
+              width: "100%",
+              padding: 0,
+              textAlign: "center",
+              cursor: "pointer",
+              animation: "slideUp 0.4s ease",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="win-titlebar">
+              <div className="win-titlebar-label">
+                <span>📖</span>
+                <span>How to Use</span>
+              </div>
+              <button
+                onClick={hideGuide}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--text-primary)",
+                  fontSize: "16px",
+                  cursor: "pointer",
+                  padding: "0 4px",
+                  fontFamily: "var(--font-win)",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div
+              style={{
+                padding: isMobile ? "20px 16px 24px" : "24px 24px 28px",
+                backgroundColor: "var(--window-bg)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: isMobile ? "56px" : "64px",
+                  marginBottom: "12px",
+                }}
+              >
+                {isMobile ? "👆" : "🖱️"}
+              </div>
+              <p
+                style={{
+                  fontSize: isMobile ? "15px" : "13px",
+                  color: "var(--text-primary)",
+                  fontWeight: "bold",
+                  marginBottom: "4px",
+                }}
+              >
+                {isMobile ? "Swipe left or right" : "Click or drag corners"}
+              </p>
+              <p
+                style={{
+                  fontSize: isMobile ? "12px" : "11px",
+                  color: "var(--text-secondary)",
+                  marginBottom: isMobile ? "20px" : "16px",
+                }}
+              >
+                to turn pages like a real book
+              </p>
+              <button
+                className="win-btn"
+                onClick={hideGuide}
+                style={{
+                  fontSize: isMobile ? "13px" : "11px",
+                  padding: isMobile ? "8px 32px" : "4px 20px",
+                  minHeight: isMobile ? "40px" : "auto",
+                  touchAction: "manipulation",
+                }}
+              >
+                Got it!
+              </button>
+              <p
+                style={{
+                  fontSize: "9px",
+                  color: "var(--text-disabled)",
+                  marginTop: "12px",
+                }}
+              >
+                Tip: Use buttons below too
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CSS animations ── */}
+      <style jsx>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px) scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+      `}</style>
     </div>
   );
 }
